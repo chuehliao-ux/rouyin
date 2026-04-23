@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>貝多芬命運交響曲拼湊遊戲</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body { text-align: center; font-family: sans-serif; background: #f0f0f0; }
+        #canvas-container { position: relative; margin: 20px auto; width: 800px; height: 300px; border: 2px solid #333; background: white; }
+        .controls { margin-top: 20px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; border-radius: 5px; }
+        .play-btn { background-color: #4CAF50; color: white; border: none; }
+        .play-btn:hover { background-color: #45a049; }
+        .original-btn { background-color: #2196F3; color: white; border: none; }
+    </style>
+</head>
+<body>
+
+    <h1>🎼 貝多芬：命運交響曲拼湊遊戲</h1>
+    <p>拖動色塊以調整小節順序，點擊下方播放鈕聆聽！</p>
+
+    <div id="canvas-container">
+        <canvas id="gameCanvas" width="800" height="200"></canvas>
+    </div>
+
+    <div id="bar-controls">
+        </div>
+
+    <div class="controls">
+        <button class="original-btn" onclick="playOriginal()">播放原曲順序</button>
+        <button class="play-btn" onclick="playCurrentSequence()">播放當前組合</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const barControls = document.getElementById('bar-controls');
+
+        // 定義四個小節的音符 (簡化版命運交響曲前四小節)
+        // 格式: { 節拍, 音高, 持續時間 }
+        const barNotes = [
+            [{t: 0, n: "G4", d: "8n"}, {t: "0:0:2", n: "G4", d: "8n"}, {t: "0:0:4", n: "G4", d: "8n"}, {t: "0:1:0", n: "Eb4", d: "2n"}], // 第一小節
+            [{t: 0, n: "R", d: "4n"}], // 第二小節 (休止/延續，簡化處理)
+            [{t: 0, n: "F4", d: "8n"}, {t: "0:0:2", n: "F4", d: "8n"}, {t: "0:0:4", n: "F4", d: "8n"}, {t: "0:1:0", n: "D4", d: "2n"}], // 第三小節
+            [{t: 0, n: "R", d: "4n"}]  // 第四小節
+        ];
+
+        let bars = [
+            { id: 0, label: "小節 A", color: "#FFADAD", x: 0 },
+            { id: 1, label: "小節 B", color: "#FFD6A5", x: 200 },
+            { id: 2, label: "小節 C", color: "#FDFFB6", x: 400 },
+            { id: 3, label: "小節 D", color: "#CAFFBF", x: 600 }
+        ];
+
+        // 打亂順序
+        bars.sort(() => Math.random() - 0.5);
+        updatePositions();
+
+        const synth = new Tone.Synth().toDestination();
+
+        // 繪製 Canvas
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            bars.forEach((bar, index) => {
+                ctx.fillStyle = bar.color;
+                ctx.fillRect(bar.x + 5, 50, 190, 100);
+                ctx.fillStyle = "black";
+                ctx.font = "20px Arial";
+                ctx.fillText(bar.label, bar.x + 60, 110);
+                ctx.strokeRect(bar.x + 5, 50, 190, 100);
+            });
+        }
+
+        function updatePositions() {
+            bars.forEach((bar, i) => bar.x = i * 200);
+            renderBarButtons();
+            draw();
+        }
+
+        // 動態生成小節播放按鈕
+        function renderBarButtons() {
+            barControls.innerHTML = '';
+            bars.forEach((bar) => {
+                const btn = document.createElement('button');
+                btn.innerText = `播放 ${bar.label}`;
+                btn.onclick = () => playBar(bar.id);
+                barControls.appendChild(btn);
+            });
+        }
+
+        // 播放單個小節
+        function playBar(id) {
+            Tone.start();
+            const now = Tone.now();
+            barNotes[id].forEach(note => {
+                if(note.n !== "R") synth.triggerAttackRelease(note.n, note.d, now + Tone.Time(note.t).toSeconds());
+            });
+        }
+
+        // 播放特定順序
+        async function playSequence(sequenceIds) {
+            await Tone.start();
+            let timeOffset = 0;
+            sequenceIds.forEach((id) => {
+                const now = Tone.now() + timeOffset;
+                barNotes[id].forEach(note => {
+                    if(note.n !== "R") synth.triggerAttackRelease(note.n, note.d, now + Tone.Time(note.t).toSeconds());
+                });
+                timeOffset += 1.5; // 每小節間隔
+            });
+        }
+
+        function playOriginal() { playSequence([0, 1, 2, 3]); }
+        function playCurrentSequence() { playSequence(bars.map(b => b.id)); }
+
+        // 簡單的拖拽邏輯
+        let draggedBar = null;
+        canvas.addEventListener('mousedown', e => {
+            const index = Math.floor(e.offsetX / 200);
+            draggedBar = bars[index];
+        });
+
+        canvas.addEventListener('mouseup', e => {
+            if (!draggedBar) return;
+            const newIndex = Math.floor(e.offsetX / 200);
+            const oldIndex = bars.indexOf(draggedBar);
+            bars.splice(oldIndex, 1);
+            bars.splice(newIndex, 0, draggedBar);
+            draggedBar = null;
+            updatePositions();
+        });
+
+        draw();
+    </script>
+</body>
+</html>
